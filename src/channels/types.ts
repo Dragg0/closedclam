@@ -15,6 +15,8 @@ export interface IncomingMessage {
   commandArgs?: string;
   /** Optional image attachments as base64 */
   images?: Array<{ data: string; mimeType: string }>;
+  /** Optional document attachments */
+  documents?: Array<{ data: string; mimeType: string; fileName: string }>;
 }
 
 export interface StreamingHandle {
@@ -26,6 +28,8 @@ export interface StreamingHandle {
   writeToolStatus(toolName: string, status: 'running' | 'done' | 'error'): void;
   /** Send an image */
   sendImage(buffer: Buffer, mimeType: string, caption?: string): Promise<void>;
+  /** Send a document/file */
+  sendDocument(buffer: Buffer, mimeType: string, fileName: string, caption?: string): Promise<void>;
   /** Finalize the response (flush any pending edits) */
   finish(): Promise<void>;
 }

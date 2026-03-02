@@ -47,7 +47,16 @@ export class AgentRuntime {
         });
       }
     }
-    userContent.push({ type: 'text', text: msg.text });
+    if (msg.documents && msg.documents.length > 0) {
+      for (const doc of msg.documents) {
+        userContent.push({
+          type: 'document',
+          source: { type: 'base64', media_type: doc.mimeType, data: doc.data },
+          title: doc.fileName,
+        });
+      }
+    }
+    userContent.push({ type: 'text', text: msg.text || 'See the attached document.' });
 
     const userMessage: LLMMessage = {
       role: 'user',
@@ -195,6 +204,11 @@ export class AgentRuntime {
           // If tool returns an image, send it
           if (result.image) {
             await stream.sendImage(result.image.buffer, result.image.mimeType, result.image.caption);
+          }
+
+          // If tool returns a document, send it
+          if (result.document) {
+            await stream.sendDocument(result.document.buffer, result.document.mimeType, result.document.fileName, result.document.caption);
           }
         } catch (err) {
           log.error('Tool execution error', { tool: toolUse.name, error: String(err) });

@@ -118,6 +118,12 @@ export class TelegramStreamWriter implements StreamingHandle {
     });
   }
 
+  async sendDocument(buffer: Buffer, mimeType: string, fileName: string, caption?: string): Promise<void> {
+    await this.api.sendDocument(this.chatId, new (await import('grammy')).InputFile(buffer, fileName), {
+      caption: caption?.slice(0, 1024),
+    });
+  }
+
   async finish(): Promise<void> {
     this.finished = true;
 

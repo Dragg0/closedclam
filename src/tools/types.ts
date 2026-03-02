@@ -11,6 +11,12 @@ export interface ToolOutput {
     mimeType: string;
     caption?: string;
   };
+  document?: {
+    buffer: Buffer;
+    mimeType: string;
+    fileName: string;
+    caption?: string;
+  };
 }
 
 export interface Tool {

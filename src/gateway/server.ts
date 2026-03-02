@@ -21,6 +21,7 @@ import { deepResearchTool, setDeepSeekProvider } from '../tools/research.js';
 import { memoryTools, setMemoryManager } from '../tools/memory-tools.js';
 import { skillTools, setSkillRegistry, setSkillHub } from '../tools/skill-tools.js';
 import { gmailTools, setGmailClient } from '../tools/gmail.js';
+import { markdownToPdfTool, setPdfGeminiProvider } from '../tools/pdf.js';
 import { getGmailTokens, saveGmailTokens } from '../auth/credentials.js';
 import { refreshGmailToken } from '../auth/gmail-oauth.js';
 import { google } from 'googleapis';
@@ -92,9 +93,11 @@ export class Gateway {
     this.tools.registerAll(memoryTools);
     this.tools.registerAll(skillTools);
     this.tools.registerAll(gmailTools);
+    this.tools.register(markdownToPdfTool);
 
     // Wire tool dependencies
     setGeminiProvider(gemini);
+    setPdfGeminiProvider(gemini);
     setDeepSeekProvider(deepseek);
     setMemoryManager(this.memory);
     setSkillRegistry(this.skillRegistry);

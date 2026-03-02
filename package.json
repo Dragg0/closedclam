@@ -21,6 +21,8 @@
     "grammy": "^1.35.0",
     "gray-matter": "^4.0.3",
     "json5": "^2.2.3",
+    "marked": "^17.0.3",
+    "puppeteer": "^24.37.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {
