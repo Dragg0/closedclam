@@ -90,10 +90,10 @@ export class TelegramStreamWriter implements StreamingHandle {
 
     try {
       if (this.messageId === null) {
-        const sent = await this.api.sendMessage(this.chatId, text);
+        const sent = await this.api.sendMessage(this.chatId, text, { parse_mode: undefined });
         this.messageId = sent.message_id;
       } else {
-        await this.api.editMessageText(this.chatId, this.messageId, text);
+        await this.api.editMessageText(this.chatId, this.messageId, text, { parse_mode: undefined });
       }
     } catch (err: unknown) {
       const e = err as Error & { description?: string };
@@ -135,9 +135,20 @@ export class TelegramStreamWriter implements StreamingHandle {
       await new Promise((r) => setTimeout(r, 100));
     }
 
-    // Final edit with complete text
+    // Final edit with Markdown parsing
     const text = this.getDisplayText();
-    if (text.trim() && text !== '...') {
+    if (text.trim() && text !== '...' && this.messageId !== null) {
+      try {
+        await this.api.editMessageText(this.chatId, this.messageId, text, { parse_mode: 'Markdown' });
+      } catch {
+        // If Markdown parse fails (malformed), send as plain text
+        try {
+          await this.api.editMessageText(this.chatId, this.messageId, text);
+        } catch {
+          // ignore
+        }
+      }
+    } else if (text.trim() && text !== '...') {
       await this.performEdit();
     }
   }
