@@ -3,7 +3,8 @@ import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
 import { configExists, saveConfig, loadConfig, ensureDataDirs, MEMORY_DIR } from './gateway/config.js';
 import { startCallbackServer, exchangeCodeForTokens } from './auth/oauth.js';
-import { saveOAuthTokens, saveApiKey, getOAuthTokens, getApiKey } from './auth/credentials.js';
+import { saveOAuthTokens, saveApiKey, getOAuthTokens, getApiKey, saveGmailTokens } from './auth/credentials.js';
+import { startGmailAuth, createOAuth2Client, exchangeGmailCode } from './auth/gmail-oauth.js';
 import { Gateway } from './gateway/server.js';
 import { setLogLevel } from './utils/logger.js';
 import { join } from 'node:path';
@@ -97,10 +98,44 @@ async function onboarding(): Promise<void> {
   const braveKey = await ask('Brave Search API Key (for web search): ');
   if (braveKey) { saveApiKey('brave', braveKey); console.log('  ✓ Saved'); }
 
+  // Step 4: Gmail integration
+  console.log('\nGmail Integration (Enter to skip):');
+  console.log('  Requires a Google Cloud project with Gmail API enabled.');
+  console.log('  Create OAuth 2.0 credentials (Desktop app) at console.cloud.google.com\n');
+
+  const gmailClientId = await ask('Gmail OAuth Client ID: ');
+  const gmailClientSecret = gmailClientId ? await ask('Gmail OAuth Client Secret: ') : '';
+
+  let gmailConfig: { clientId?: string; clientSecret?: string } = {};
+
+  if (gmailClientId && gmailClientSecret) {
+    gmailConfig = { clientId: gmailClientId, clientSecret: gmailClientSecret };
+
+    const gmailPort = parseInt(process.env.GMAIL_CALLBACK_PORT || '8976', 10);
+    console.log('\nStarting Gmail OAuth flow...');
+    const gmailServer = startGmailAuth(gmailClientId, gmailClientSecret, gmailPort);
+    console.log(`\n  Open in your browser:\n  ${gmailServer.url}\n`);
+    console.log('Waiting for Gmail authorization...');
+
+    try {
+      const gmailCode = await gmailServer.waitForCode;
+      gmailServer.close();
+      console.log('Exchanging code for Gmail tokens...');
+      const oauth2Client = createOAuth2Client(gmailClientId, gmailClientSecret, gmailPort);
+      const gmailTokens = await exchangeGmailCode(oauth2Client, gmailCode);
+      saveGmailTokens(gmailTokens);
+      console.log('  ✓ Gmail OAuth tokens saved!\n');
+    } catch (err) {
+      gmailServer.close();
+      console.error(`\nGmail OAuth failed: ${err}`);
+      console.log('You can set up Gmail later by re-running setup.\n');
+    }
+  }
+
   // Save config
   saveConfig({
     telegram: { botToken, allowedUsers },
-    providers: { anthropic: { authMode } },
+    providers: { anthropic: { authMode }, gmail: gmailConfig },
   });
 
   // Initialize MEMORY.md

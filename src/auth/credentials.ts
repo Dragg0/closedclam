@@ -4,6 +4,7 @@ import { CREDENTIALS_PATH, ensureDataDirs } from '../gateway/config.js';
 import { encrypt, decrypt } from '../utils/crypto.js';
 import { createLogger } from '../utils/logger.js';
 import type { OAuthTokens } from './oauth.js';
+import type { GmailTokens } from './gmail-oauth.js';
 
 const log = createLogger('credentials');
 
@@ -23,6 +24,9 @@ export interface StoredCredentials {
   };
   brave?: {
     apiKey?: string;
+  };
+  gmail?: {
+    oauth?: GmailTokens;
   };
 }
 
@@ -108,6 +112,18 @@ export function saveApiKey(provider: 'anthropic' | 'deepseek' | 'gemini' | 'brav
   }
   writeStore(creds);
   log.info(`API key saved for ${provider}`);
+}
+
+export function getGmailTokens(): GmailTokens | undefined {
+  const creds = readStore();
+  return creds.gmail?.oauth;
+}
+
+export function saveGmailTokens(tokens: GmailTokens) {
+  const creds = readStore();
+  creds.gmail = { ...creds.gmail, oauth: tokens };
+  writeStore(creds);
+  log.info('Gmail tokens saved');
 }
 
 export function clearCredentials() {

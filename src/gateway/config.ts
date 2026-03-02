@@ -33,6 +33,10 @@ const ConfigSchema = z.object({
       model: z.string().default('gemini-2.0-flash-exp'),
       imageModel: z.string().default('gemini-3.1-flash-image-preview'),
     }).default({}),
+    gmail: z.object({
+      clientId: z.string().optional(),
+      clientSecret: z.string().optional(),
+    }).default({}),
   }).default({}),
   defaultProvider: z.string().default('anthropic'),
   defaultModel: z.string().default('claude-haiku-4-5-20251001'),
@@ -81,6 +85,14 @@ export function loadConfig(): Config {
       ...(raw.telegram as Record<string, unknown> || {}),
       allowedUsers: users,
     };
+  }
+  if (process.env.GMAIL_CLIENT_ID || process.env.GMAIL_CLIENT_SECRET) {
+    const providers = (raw.providers as Record<string, unknown>) || {};
+    const gmail = (providers.gmail as Record<string, unknown>) || {};
+    if (process.env.GMAIL_CLIENT_ID) gmail.clientId = process.env.GMAIL_CLIENT_ID;
+    if (process.env.GMAIL_CLIENT_SECRET) gmail.clientSecret = process.env.GMAIL_CLIENT_SECRET;
+    providers.gmail = gmail;
+    raw.providers = providers;
   }
   if (process.env.WORKSPACE_ROOT) {
     raw.workspace = process.env.WORKSPACE_ROOT;

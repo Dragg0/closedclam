@@ -16,6 +16,7 @@
     "@grammyjs/auto-retry": "^2.0.2",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "googleapis": "^171.4.0",
     "grammy": "^1.35.0",
     "gray-matter": "^4.0.3",
     "json5": "^2.2.3",

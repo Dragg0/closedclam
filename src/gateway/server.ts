@@ -20,6 +20,10 @@ import { generateImageTool, setGeminiProvider } from '../tools/image.js';
 import { deepResearchTool, setDeepSeekProvider } from '../tools/research.js';
 import { memoryTools, setMemoryManager } from '../tools/memory-tools.js';
 import { skillTools, setSkillRegistry, setSkillHub } from '../tools/skill-tools.js';
+import { gmailTools, setGmailClient } from '../tools/gmail.js';
+import { getGmailTokens, saveGmailTokens } from '../auth/credentials.js';
+import { refreshGmailToken } from '../auth/gmail-oauth.js';
+import { google } from 'googleapis';
 import { MemoryManager } from '../memory/manager.js';
 import { SkillRegistry } from '../skills/registry.js';
 import { SkillHub } from '../skills/hub.js';
@@ -87,6 +91,7 @@ export class Gateway {
     this.tools.register(deepResearchTool);
     this.tools.registerAll(memoryTools);
     this.tools.registerAll(skillTools);
+    this.tools.registerAll(gmailTools);
 
     // Wire tool dependencies
     setGeminiProvider(gemini);
@@ -94,6 +99,9 @@ export class Gateway {
     setMemoryManager(this.memory);
     setSkillRegistry(this.skillRegistry);
     setSkillHub(this.skillHub);
+
+    // Wire Gmail if credentials exist
+    this.initGmail();
 
     // Runtime
     this.runtime = new AgentRuntime({
@@ -105,6 +113,62 @@ export class Gateway {
       contextBuilder: this.contextBuilder,
       compactor: this.compactor,
     });
+  }
+
+  private initGmail(): void {
+    const config = loadConfig();
+    const clientId = config.providers.gmail.clientId;
+    const clientSecret = config.providers.gmail.clientSecret;
+    const gmailTokens = getGmailTokens();
+
+    if (!clientId || !clientSecret || !gmailTokens) {
+      log.debug('Gmail not configured, skipping');
+      return;
+    }
+
+    try {
+      const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+      oauth2Client.setCredentials({
+        access_token: gmailTokens.accessToken,
+        refresh_token: gmailTokens.refreshToken,
+        expiry_date: gmailTokens.expiresAt,
+      });
+
+      // Listen for token refresh events and persist new tokens
+      oauth2Client.on('tokens', (tokens) => {
+        log.info('Gmail tokens refreshed');
+        const current = getGmailTokens();
+        saveGmailTokens({
+          accessToken: tokens.access_token || current?.accessToken || '',
+          refreshToken: tokens.refresh_token || current?.refreshToken || '',
+          expiresAt: tokens.expiry_date || Date.now() + 3600 * 1000,
+          scope: tokens.scope || current?.scope || '',
+        });
+      });
+
+      // Proactively refresh if token is expired or about to expire
+      if (gmailTokens.expiresAt < Date.now() + 5 * 60 * 1000) {
+        refreshGmailToken(clientId, clientSecret, gmailTokens.refreshToken)
+          .then((newTokens) => {
+            saveGmailTokens(newTokens);
+            oauth2Client.setCredentials({
+              access_token: newTokens.accessToken,
+              refresh_token: newTokens.refreshToken,
+              expiry_date: newTokens.expiresAt,
+            });
+            log.info('Gmail tokens proactively refreshed');
+          })
+          .catch((err) => {
+            log.warn('Failed to proactively refresh Gmail tokens', { error: String(err) });
+          });
+      }
+
+      const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+      setGmailClient(gmail);
+      log.info('Gmail client initialized');
+    } catch (err) {
+      log.warn('Failed to initialize Gmail client', { error: String(err) });
+    }
   }
 
   async start(): Promise<void> {
