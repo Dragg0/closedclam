@@ -65,17 +65,18 @@ export class Gateway {
     this.skillRegistry = new SkillRegistry();
     this.skillHub = new SkillHub();
 
+    // Sessions + transcript
+    this.sessions = new SessionManager();
+    this.transcript = new TranscriptWriter();
+
     // Context builder
     this.contextBuilder = new ContextBuilder();
     this.contextBuilder.setMemory(this.memory);
+    this.contextBuilder.setSessions(this.sessions);
     this.contextBuilder.setSkillInjector(this.skillRegistry);
 
     // Compactor
     this.compactor = new ContextCompactor(this.anthropic);
-
-    // Sessions + transcript
-    this.sessions = new SessionManager();
-    this.transcript = new TranscriptWriter();
 
     // Tools
     this.tools = new ToolRegistry();
@@ -194,6 +195,8 @@ export class Gateway {
       getModel: (key) => this.sessions.getModel(key),
       getMemory: async () => this.memory.getMemory() || 'No long-term memory stored yet.',
       searchMemory: async (query) => this.memory.search(query),
+      getSessionMessageCount: (key) => this.sessions.getMessages(key).length,
+      getProviderList: () => this.router.list(),
     });
 
     if (handled) return;

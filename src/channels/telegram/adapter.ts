@@ -4,6 +4,7 @@ import { loadConfig } from '../../gateway/config.js';
 import { createLogger } from '../../utils/logger.js';
 import type { ChannelAdapter, IncomingMessage, StreamingHandle } from '../types.js';
 import { TelegramStreamWriter } from './streaming.js';
+import { BOT_COMMANDS } from './commands.js';
 
 const log = createLogger('telegram');
 
@@ -134,6 +135,9 @@ export class TelegramAdapter implements ChannelAdapter {
       log.info('Telegram adapter in webhook mode');
       return;
     }
+
+    // Register command menu with Telegram
+    await this.bot.api.setMyCommands(BOT_COMMANDS);
 
     // Long polling mode
     log.info('Starting Telegram bot (long polling)...');

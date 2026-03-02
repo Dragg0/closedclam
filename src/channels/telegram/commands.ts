@@ -8,6 +8,8 @@ export interface CommandContext {
   getModel: (sessionKey: string) => string;
   getMemory: () => Promise<string>;
   searchMemory: (query: string) => Promise<string>;
+  getSessionMessageCount: (sessionKey: string) => number;
+  getProviderList: () => string[];
 }
 
 type CommandHandler = (ctx: CommandContext) => Promise<boolean>;
@@ -23,14 +25,7 @@ const commands: Record<string, CommandHandler> = {
       `• Generate images\n` +
       `• Do deep research\n` +
       `• Learn new skills\n\n` +
-      `Commands:\n` +
-      `/reset - Clear conversation\n` +
-      `/model <name> - Switch model\n` +
-      `/memory show|search <query> - Memory management\n` +
-      `/imagine <prompt> - Generate image\n` +
-      `/research <question> - Deep research\n` +
-      `/skills list|search|install - Manage skills\n` +
-      `/help - Show this message`
+      `Use / to see available commands.`
     );
     await ctx.stream.finish();
     return true;
@@ -47,6 +42,26 @@ const commands: Record<string, CommandHandler> = {
     return true;
   },
 
+  status: async (ctx) => {
+    const model = ctx.getModel(ctx.msg.sessionKey);
+    const msgCount = ctx.getSessionMessageCount(ctx.msg.sessionKey);
+    const providers = ctx.getProviderList();
+    const uptime = Math.floor(process.uptime());
+    const hours = Math.floor(uptime / 3600);
+    const mins = Math.floor((uptime % 3600) / 60);
+
+    ctx.stream.replaceText(
+      `🐚 ClosedClam Status\n\n` +
+      `Model: ${model}\n` +
+      `Messages this session: ${msgCount}\n` +
+      `Providers online: ${providers.join(', ')}\n` +
+      `Uptime: ${hours}h ${mins}m\n` +
+      `Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`
+    );
+    await ctx.stream.finish();
+    return true;
+  },
+
   model: async (ctx) => {
     const modelName = ctx.msg.commandArgs?.trim();
     if (!modelName) {
@@ -54,11 +69,11 @@ const commands: Record<string, CommandHandler> = {
       ctx.stream.replaceText(
         `Current model: ${current}\n\n` +
         `Available models:\n` +
-        `• claude-sonnet-4-20250514\n` +
-        `• claude-opus-4-20250514\n` +
-        `• claude-haiku-3-5-20241022\n` +
-        `• deepseek-chat\n` +
-        `• deepseek-reasoner`
+        `• claude-haiku-4-5-20251001 (fast, cheap)\n` +
+        `• claude-sonnet-4-20250514 (balanced)\n` +
+        `• claude-opus-4-20250514 (smartest)\n` +
+        `• deepseek-chat (cheap alternative)\n` +
+        `• deepseek-reasoner (deep thinking)`
       );
       await ctx.stream.finish();
       return true;
@@ -114,3 +129,15 @@ export async function handleCommand(ctx: CommandContext): Promise<boolean> {
 
 // Commands that should be passed through to the agent (not handled here)
 export const AGENT_COMMANDS = new Set(['imagine', 'research', 'skills']);
+
+/** Telegram bot command menu definitions */
+export const BOT_COMMANDS = [
+  { command: 'status', description: 'Show current model, uptime, and stats' },
+  { command: 'model', description: 'Switch model or show current' },
+  { command: 'reset', description: 'Clear conversation history' },
+  { command: 'memory', description: 'Show or search memories' },
+  { command: 'imagine', description: 'Generate an image' },
+  { command: 'research', description: 'Deep research a topic' },
+  { command: 'skills', description: 'List, search, or install skills' },
+  { command: 'help', description: 'Show help message' },
+];
