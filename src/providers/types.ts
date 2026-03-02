@@ -7,7 +7,8 @@ export type ContentBlock =
   | TextBlock
   | ToolUseBlock
   | ToolResultBlock
-  | ImageBlock;
+  | ImageBlock
+  | DocumentBlock;
 
 export interface TextBlock {
   type: 'text';
@@ -35,6 +36,16 @@ export interface ImageBlock {
     media_type: string;
     data: string;
   };
+}
+
+export interface DocumentBlock {
+  type: 'document';
+  source: {
+    type: 'base64';
+    media_type: string;
+    data: string;
+  };
+  title?: string;
 }
 
 export interface ToolDefinition {

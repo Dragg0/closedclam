@@ -114,6 +114,16 @@ export class AnthropicProvider implements LLMProvider {
                 data: block.source.data,
               },
             };
+          case 'document':
+            return {
+              type: 'document' as const,
+              source: {
+                type: 'base64' as const,
+                media_type: block.source.media_type,
+                data: block.source.data,
+              },
+              title: block.title,
+            } as unknown as Anthropic.ContentBlockParam;
           default:
             return { type: 'text' as const, text: JSON.stringify(block) };
         }

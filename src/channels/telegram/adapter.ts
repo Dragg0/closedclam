@@ -92,6 +92,80 @@ export class TelegramAdapter implements ChannelAdapter {
       }
     });
 
+    // Handle documents (files uploaded to the bot)
+    this.bot.on('message:document', async (ctx) => {
+      if (!this.handler) return;
+
+      const msg = this.normalizeMessage(ctx);
+      const doc = ctx.message.document;
+
+      if (doc) {
+        try {
+          const file = await ctx.api.getFile(doc.file_id);
+          if (file.file_path) {
+            const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+            const resp = await fetch(url);
+            const buffer = Buffer.from(await resp.arrayBuffer());
+            const mime = doc.mime_type || 'application/octet-stream';
+            const fileName = doc.file_name || 'document';
+
+            const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            const TEXT_EXTENSIONS = [
+              '.txt', '.md', '.csv', '.json', '.jsonl', '.xml', '.yaml', '.yml',
+              '.html', '.css', '.js', '.ts', '.jsx', '.tsx', '.py', '.sh', '.bash',
+              '.rb', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.hpp', '.sql',
+              '.toml', '.ini', '.cfg', '.conf', '.env', '.log', '.diff', '.patch',
+            ];
+
+            if (IMAGE_MIMES.includes(mime)) {
+              // Treat image documents like photos
+              msg.images = [{
+                data: buffer.toString('base64'),
+                mimeType: mime,
+              }];
+            } else if (mime === 'application/pdf') {
+              // Pass PDFs as document attachments
+              msg.documents = [{
+                data: buffer.toString('base64'),
+                mimeType: mime,
+                fileName,
+              }];
+            } else if (
+              mime.startsWith('text/') ||
+              TEXT_EXTENSIONS.some((ext) => fileName.toLowerCase().endsWith(ext))
+            ) {
+              // Inline text file contents into the message
+              const textContent = buffer.toString('utf-8');
+              const truncated = textContent.length > 50000
+                ? textContent.slice(0, 50000) + '\n\n[...truncated at 50k characters]'
+                : textContent;
+              msg.text = (msg.text || '').trim()
+                ? `${msg.text}\n\n--- File: ${fileName} ---\n${truncated}`
+                : `[Uploaded file: ${fileName}]\n\n${truncated}`;
+            } else {
+              // Other binary files — pass as document attachment
+              msg.documents = [{
+                data: buffer.toString('base64'),
+                mimeType: mime,
+                fileName,
+              }];
+            }
+          }
+        } catch (err) {
+          log.warn('Failed to download document', { error: String(err), fileName: doc.file_name });
+        }
+      }
+
+      const stream = new TelegramStreamWriter(this.bot.api, ctx.chat.id);
+      try {
+        await this.handler(msg, stream);
+      } catch (err) {
+        log.error('Error handling document message', { error: String(err) });
+        stream.replaceText('An error occurred. Please try again.');
+        await stream.finish();
+      }
+    });
+
     this.bot.catch((err) => {
       log.error('Bot error', { error: String(err.error) });
     });
