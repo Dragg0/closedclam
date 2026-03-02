@@ -31,7 +31,7 @@ const ConfigSchema = z.object({
     }).default({}),
     gemini: z.object({
       model: z.string().default('gemini-2.0-flash-exp'),
-      imageModel: z.string().default('gemini-2.0-flash-exp'),
+      imageModel: z.string().default('gemini-3.1-flash-image-preview'),
     }).default({}),
   }).default({}),
   defaultProvider: z.string().default('anthropic'),
