@@ -4,7 +4,7 @@ import { createLogger } from '../../utils/logger.js';
 
 const log = createLogger('telegram-stream');
 
-const EDIT_THROTTLE_MS = 1000;
+const EDIT_THROTTLE_MS = 1500;
 const TYPING_INTERVAL_MS = 4000;
 const MAX_MESSAGE_LENGTH = 4096;
 
@@ -13,11 +13,12 @@ export class TelegramStreamWriter implements StreamingHandle {
   private chatId: number;
   private messageId: number | null = null;
   private buffer = '';
-  private lastEditTime = 0;
   private editTimer: ReturnType<typeof setTimeout> | null = null;
   private typingTimer: ReturnType<typeof setInterval> | null = null;
   private finished = false;
   private toolStatuses: string[] = [];
+  private editing = false;
+  private pendingEdit = false;
 
   constructor(api: Api, chatId: number) {
     this.api = api;
@@ -71,17 +72,22 @@ export class TelegramStreamWriter implements StreamingHandle {
   private scheduleEdit() {
     if (this.editTimer) return;
 
-    const elapsed = Date.now() - this.lastEditTime;
-    const delay = Math.max(0, EDIT_THROTTLE_MS - elapsed);
-
     this.editTimer = setTimeout(() => {
       this.editTimer = null;
       this.performEdit();
-    }, delay);
+    }, EDIT_THROTTLE_MS);
   }
 
   private async performEdit() {
+    // Prevent concurrent edits - if one is in flight, mark pending
+    if (this.editing) {
+      this.pendingEdit = true;
+      return;
+    }
+
+    this.editing = true;
     const text = this.getDisplayText();
+
     try {
       if (this.messageId === null) {
         const sent = await this.api.sendMessage(this.chatId, text);
@@ -89,13 +95,19 @@ export class TelegramStreamWriter implements StreamingHandle {
       } else {
         await this.api.editMessageText(this.chatId, this.messageId, text);
       }
-      this.lastEditTime = Date.now();
     } catch (err: unknown) {
       const e = err as Error & { description?: string };
-      // Ignore "message is not modified" errors
       if (!e.description?.includes('message is not modified')) {
         log.warn('Failed to edit message', { error: String(err) });
       }
+    }
+
+    this.editing = false;
+
+    // If new content arrived while we were editing, do another edit
+    if (this.pendingEdit) {
+      this.pendingEdit = false;
+      this.scheduleEdit();
     }
   }
 
@@ -116,6 +128,11 @@ export class TelegramStreamWriter implements StreamingHandle {
     if (this.typingTimer) {
       clearInterval(this.typingTimer);
       this.typingTimer = null;
+    }
+
+    // Wait for any in-flight edit to complete
+    while (this.editing) {
+      await new Promise((r) => setTimeout(r, 100));
     }
 
     // Final edit with complete text
