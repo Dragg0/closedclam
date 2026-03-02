@@ -9,9 +9,9 @@ const log = createLogger('router');
 // Model name -> provider name mapping
 const MODEL_ROUTES: Record<string, string> = {
   // Anthropic models
+  'claude-haiku-4-5-20251001': 'anthropic',
   'claude-sonnet-4-20250514': 'anthropic',
   'claude-opus-4-20250514': 'anthropic',
-  'claude-haiku-3-5-20241022': 'anthropic',
   // DeepSeek models
   'deepseek-chat': 'deepseek',
   'deepseek-reasoner': 'deepseek',

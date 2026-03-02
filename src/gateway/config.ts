@@ -35,7 +35,7 @@ const ConfigSchema = z.object({
     }).default({}),
   }).default({}),
   defaultProvider: z.string().default('anthropic'),
-  defaultModel: z.string().default('claude-sonnet-4-20250514'),
+  defaultModel: z.string().default('claude-haiku-4-5-20251001'),
   agent: z.object({
     maxToolIterations: z.number().default(10),
     compactionThreshold: z.number().default(0.8),
